@@ -1,0 +1,34 @@
+# Arquivos compilados
+*.o
+*.a
+*.so
+*.dylib
+
+# Executáveis
+jogo
+*.exe
+*.out
+
+# Arquivos de build
+*.d
+*.dSYM/
+
+# Arquivos de backup
+*~
+*.bak
+*.swp
+*.swo
+
+# Arquivos do editor
+.vscode/
+.idea/
+*.sublime-*
+
+# Arquivos temporários
+*.tmp
+*.log
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
