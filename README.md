@@ -1,5 +1,20 @@
-# Keep Solving and Nobody Explodes
-Versão básica sequencial do jogo de desarmamento de bombas, implementada em C com ncurses.
+# Keep Solving and Nobody Explodes - Versão de Treino
+
+Jogo de desarmamento de bombas implementado em C com ncurses.
+
+## Estrutura do Projeto
+
+```
+bomb_game/
+├── src/              # Código fonte
+│   ├── main.c        # Loop principal
+│   ├── game.h/.c     # Lógica do jogo
+│   └── ui.h/.c       # Interface ncurses
+├── docs/             # Documentação
+│   ├── README.md     # Documentação completa
+│   └── instrucoes.md # Instruções de jogo
+└── Makefile          # Compilação
+```
 
 ## Requisitos
 
@@ -23,7 +38,7 @@ make
 ### Compilação manual
 
 ```bash
-gcc -Wall -Wextra -std=c11 main.c game.c ui.c -o jogo -lncurses
+gcc -Wall -Wextra -std=c11 -Isrc src/main.c src/game.c src/ui.c -o jogo -lncurses
 ```
 
 ## Execução
@@ -54,17 +69,9 @@ gcc -Wall -Wextra -std=c11 main.c game.c ui.c -o jogo -lncurses
 - `ENTER`: Envia a instrução para o tedax (se ele estiver livre)
 - `q`: Sair do jogo (força fim imediato)
 
-## Estrutura do Código
-
-- `main.c`: Loop principal e processamento de entrada do jogador (futuro Coordenador)
-- `game.h` / `game.c`: Lógica do jogo, estruturas de dados, geração de módulos (futuro Mural) e atualização do tedax
-- `ui.h` / `ui.c`: Interface ncurses e exibição de informações (futura thread de Exibição)
-- `Makefile`: Arquivo de compilação
-
 ## Notas
 
 - **Mural de Módulos Pendentes**: `gerar_novo_modulo()` e `atualizar_mural()`
 - **Exibição de Informações**: `desenhar_tela()`
 - **Coordenador (Jogador)**: `processar_entrada()`
 - **Tedax**: `atualizar_tedax()`
-
