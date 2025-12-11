@@ -98,6 +98,8 @@ typedef struct {
     pthread_cond_t cond_modulo_disponivel; // condition variable para quando há módulo disponível
     pthread_cond_t cond_bancada_disponivel; // condition variable para quando há bancada disponível
     pthread_cond_t cond_tela_atualizada;    // condition variable para atualizar a tela
+    
+    char mensagem_erro[64]; // mensagem de erro para exibir na UI
 } GameState;
 
 // Funções do jogo
@@ -141,6 +143,13 @@ void* thread_mural(void* arg);
 void* thread_exibicao(void* arg);
 void* thread_tedax(void* arg);
 void* thread_coordenador(void* arg);
+
+// Função auxiliar para processar comando do formato T1B1M1:ppp
+// Retorna 1 se sucesso, 0 se falha
+// Parâmetros de saída: tedax_idx, bancada_idx, modulo_idx, instrucao
+int processar_comando(const char* buffer, GameState *g, 
+                      int *tedax_idx, int *bancada_idx, int *modulo_idx, 
+                      char *instrucao);
 
 #endif // GAME_H
 

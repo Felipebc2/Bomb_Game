@@ -51,7 +51,7 @@ gcc -Wall -Wextra -std=c11 -Isrc -pthread src/main.c src/game.c src/ui.c -o jogo
 2. Use as setas do teclado para navegar e ENTER para selecionar a dificuldade.
 3. O jogo começa com 1 módulo já gerado.
 4. Cada módulo tem uma cor e requer uma sequência específica, que no arquivo de instruções está expecificado ao jogador
-5. Digite a sequência de caracteres instruida pelo arquivo de instruções e pressione ENTER para designar o módulo ao tedax.
+5. Digite o comando no formato `T<tedax>B<bancada>M<modulo>:<instrucao>` (veja seção "Sistema de Input" abaixo)
 6. O tedax ocupará a bancada pelo tempo necessário para desarmar o módulo.
 7. Se a instrução estiver correta, o módulo é desarmado. Se estiver incorreta, ele volta para o mural como ultimo da fila.
 8. O jogo termina quando:
@@ -60,9 +60,42 @@ gcc -Wall -Wextra -std=c11 -Isrc -pthread src/main.c src/game.c src/ui.c -o jogo
 
 ## Controles
 
-- `BACKSPACE`: Remove o último caractere da instrução
-- `ENTER`: Envia a instrução para o tedax (se ele estiver livre)
+- `BACKSPACE`: Remove o último caractere do comando
+- `ENTER`: Envia o comando para processar
 - `q`: Sair do jogo (força fim imediato)
+
+## Sistema de Input
+
+O jogo utiliza um sistema de comandos explícito onde você especifica qual tedax, bancada e módulo deseja usar, seguido da instrução.
+
+### Formato do Comando
+
+O formato do comando é: `T<tedax>B<bancada>M<modulo>:<instrucao>`
+
+**Exemplos:**
+- `T1B1M1:ppp` - Tedax 1, Bancada 1, Módulo 1, instrução "ppp"
+- `T3B2M1:pp` - Tedax 3, Bancada 2, Módulo 1, instrução "pp"
+- `B1M2:p` - Bancada 1, Módulo 2, instrução "p" (tedax será o primeiro disponível)
+- `M1:ppp` - Módulo 1, instrução "ppp" (tedax e bancada serão os primeiros disponíveis)
+- `:pp` - Apenas instrução "pp" (tedax, bancada e módulo serão os primeiros disponíveis)
+
+### Regras de Default
+
+Se você não especificar algum componente do comando, o sistema aplica as seguintes regras:
+
+- **Tedax não especificado**: Usa o tedax livre com o índice mais baixo (primeiro disponível)
+- **Bancada não especificada**: Usa a bancada livre com o índice mais baixo (primeira disponível)
+- **Módulo não especificado**: Usa o primeiro módulo pendente da fila
+
+### Validação
+
+O sistema valida automaticamente:
+- Se o tedax especificado está livre
+- Se a bancada especificada está livre
+- Se o módulo especificado está pendente
+- Se todos os recursos necessários estão disponíveis
+
+Se algum recurso não estiver disponível, o comando será ignorado e o buffer será limpo.
 
 ## Funcionamento das Threads
 
@@ -92,9 +125,10 @@ O jogo foi implementado usando programação concorrente com pthreads. Cada comp
 4. **Thread do Coordenador** (`thread_coordenador`)
    - Responsável por processar a entrada do jogador
    - Lê teclas do teclado em tempo real
-   - Designa módulos pendentes para tedax livres
-   - Verifica disponibilidade de bancadas antes de designar módulos
-   - Gerencia o buffer de instrução do jogador
+   - Processa comandos no formato `T<tedax>B<bancada>M<modulo>:<instrucao>`
+   - Aplica regras de default quando componentes não são especificados
+   - Valida disponibilidade de recursos antes de designar módulos
+   - Gerencia o buffer de comando do jogador
 
 ### Sincronização
 

@@ -216,14 +216,31 @@ void desenhar_tela(const GameState *g, const char *buffer_instrucao) {
         } else {
             attron(A_DIM); // Texto com menos brilho
         }
-        mvprintw(linha++, 0, "Instrucao: [DESABILITADO - Todos os tedax ocupados]");
+        mvprintw(linha++, 0, "Comando: [DESABILITADO - Todos os tedax ocupados]");
         if (cores_disponiveis) {
             attroff(COLOR_PAIR(3));
         } else {
             attroff(A_DIM);
         }
     } else {
-        mvprintw(linha++, 0, "Instrucao: [%s]", buffer_instrucao);
+        mvprintw(linha++, 0, "Comando: [%s]", buffer_instrucao);
+    }
+    linha++;
+    
+    // Mostrar mensagem de erro se houver
+    if (g->mensagem_erro[0] != '\0') {
+        if (cores_disponiveis) {
+            attron(A_BOLD | COLOR_PAIR(3)); // Bold e amarelo/vermelho
+        } else {
+            attron(A_BOLD);
+        }
+        mvprintw(linha++, 0, "%s", g->mensagem_erro);
+        if (cores_disponiveis) {
+            attroff(A_BOLD | COLOR_PAIR(3));
+        } else {
+            attroff(A_BOLD);
+        }
+        linha++;
     }
     
     refresh();

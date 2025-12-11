@@ -61,6 +61,7 @@ void inicializar_jogo(GameState *g, Dificuldade dificuldade, int num_tedax, int 
     g->ticks_desde_ultimo_modulo = 0;
     g->jogo_rodando = 1;
     g->jogo_terminou = 0;
+    g->mensagem_erro[0] = '\0'; // Inicializar mensagem de erro vazia
     
     // Inicializar mutex e condition variables
     pthread_mutex_init(&g->mutex_jogo, NULL);
@@ -252,7 +253,7 @@ void* thread_exibicao(void* arg) {
     ts.tv_nsec = 200000000L; // 0.2 segundos
     
     // Buffer de instrução compartilhado (gerenciado pela thread coordenador)
-    extern char buffer_instrucao_global[16];
+    extern char buffer_instrucao_global[64];
     
     // Inicializar ncurses nesta thread
     inicializar_ncurses();
@@ -358,10 +359,119 @@ void* thread_tedax(void* arg) {
     return NULL;
 }
 
+// Função auxiliar para processar comando do formato T1B1M1:ppp
+// Retorna 1 se sucesso, 0 se falha
+int processar_comando(const char* buffer, GameState *g, 
+                      int *tedax_idx, int *bancada_idx, int *modulo_idx, 
+                      char *instrucao) {
+    // Inicializar valores como -1 (não especificado)
+    *tedax_idx = -1;
+    *bancada_idx = -1;
+    *modulo_idx = -1;
+    instrucao[0] = '\0';
+    
+    // Procurar por ':' que separa o comando da instrução
+    const char *separador = strchr(buffer, ':');
+    
+    if (!separador) {
+        // Se não há ':', tratar tudo como instrução (caso: apenas "ppp")
+        // Verificar se há algum T, B ou M no buffer - se houver, é formato inválido
+        int tem_comando = 0;
+        for (int i = 0; buffer[i] != '\0'; i++) {
+            if (buffer[i] == 'T' || buffer[i] == 't' || 
+                buffer[i] == 'B' || buffer[i] == 'b' || 
+                buffer[i] == 'M' || buffer[i] == 'm') {
+                tem_comando = 1;
+                break;
+            }
+        }
+        
+        if (tem_comando) {
+            return 0; // Formato inválido - tem T/B/M mas falta ':'
+        }
+        
+        // Apenas instrução, sem especificações
+        strncpy(instrucao, buffer, 15);
+        instrucao[15] = '\0';
+        return 1;
+    }
+    
+    // Copiar instrução (parte após ':')
+    strncpy(instrucao, separador + 1, 15);
+    instrucao[15] = '\0';
+    
+    // Se a parte antes do ':' está vazia (caso: ":ppp"), apenas instrução
+    int len_comando = separador - buffer;
+    if (len_comando == 0) {
+        return 1; // Apenas instrução, sem especificações
+    }
+    
+    // Processar parte antes do ':' (T1B1M1)
+    char comando[32];
+    strncpy(comando, buffer, len_comando);
+    comando[len_comando] = '\0';
+    
+    // Fazer parsing do comando
+    int i = 0;
+    while (i < len_comando) {
+        if (comando[i] == 'T' || comando[i] == 't') {
+            // Ler número do tedax
+            i++;
+            int num = 0;
+            while (i < len_comando && comando[i] >= '0' && comando[i] <= '9') {
+                num = num * 10 + (comando[i] - '0');
+                i++;
+            }
+            if (num >= 1 && num <= g->qtd_tedax) {
+                *tedax_idx = num - 1; // Converter para índice (0-based)
+            } else {
+                return 0; // Tedax inválido
+            }
+        } else if (comando[i] == 'B' || comando[i] == 'b') {
+            // Ler número da bancada
+            i++;
+            int num = 0;
+            while (i < len_comando && comando[i] >= '0' && comando[i] <= '9') {
+                num = num * 10 + (comando[i] - '0');
+                i++;
+            }
+            if (num >= 1 && num <= g->qtd_bancadas) {
+                *bancada_idx = num - 1; // Converter para índice (0-based)
+            } else {
+                return 0; // Bancada inválida
+            }
+        } else if (comando[i] == 'M' || comando[i] == 'm') {
+            // Ler número do módulo (ID do módulo, não índice)
+            i++;
+            int num = 0;
+            while (i < len_comando && comando[i] >= '0' && comando[i] <= '9') {
+                num = num * 10 + (comando[i] - '0');
+                i++;
+            }
+            // Procurar módulo pelo ID
+            int encontrado = 0;
+            for (int j = 0; j < g->qtd_modulos; j++) {
+                if (g->modulos[j].id == num) {
+                    *modulo_idx = j;
+                    encontrado = 1;
+                    break;
+                }
+            }
+            if (!encontrado) {
+                return 0; // Módulo não encontrado
+            }
+        } else {
+            i++; // Ignorar caracteres desconhecidos
+        }
+    }
+    
+    return 1; // Sucesso
+}
+
 // Thread do Coordenador (Jogador)
 void* thread_coordenador(void* arg) {
     GameState *g = (GameState*)arg;
-    extern char buffer_instrucao_global[16];
+    extern char buffer_instrucao_global[64];
     int buffer_len = 0;
     
     while (g->jogo_rodando && !g->jogo_terminou) {
@@ -377,78 +487,122 @@ void* thread_coordenador(void* arg) {
         } else {
             pthread_mutex_lock(&g->mutex_jogo);
             
-            // Verificar se há tedax livre
-            int tedax_livre = -1;
-            for (int i = 0; i < g->qtd_tedax; i++) {
-                if (g->tedax[i].estado == TEDAX_LIVRE) {
-                    tedax_livre = i;
-                    break;
+            // Processar BACKSPACE
+            if (ch == KEY_BACKSPACE || ch == 127 || ch == '\b') {
+                if (buffer_len > 0) {
+                    buffer_len--;
+                    buffer_instrucao_global[buffer_len] = '\0';
                 }
             }
-            
-            if (tedax_livre >= 0) {
-                // Processar BACKSPACE
-                if (ch == KEY_BACKSPACE || ch == 127 || ch == '\b') {
-                    if (buffer_len > 0) {
-                        buffer_len--;
-                        buffer_instrucao_global[buffer_len] = '\0';
-                    }
-                }
-                // Processar ENTER para enviar instrução
-                else if (ch == '\n' || ch == '\r') {
-                    // Procurar o primeiro módulo pendente
-                    int modulo_encontrado = -1;
-                    for (int i = 0; i < g->qtd_modulos; i++) {
-                        if (g->modulos[i].estado == MOD_PENDENTE) {
-                            modulo_encontrado = i;
-                            break;
-                        }
-                    }
+            // Processar ENTER para enviar comando
+            else if (ch == '\n' || ch == '\r') {
+                // Limpar mensagem de erro anterior
+                g->mensagem_erro[0] = '\0';
+                
+                int tedax_idx = -1, bancada_idx = -1, modulo_idx = -1;
+                char instrucao[16] = "";
+                
+                // Processar comando no formato T1B1M1:ppp
+                if (processar_comando(buffer_instrucao_global, g, &tedax_idx, &bancada_idx, &modulo_idx, instrucao)) {
+                    // Aplicar regras de default para valores não especificados
                     
-                    if (modulo_encontrado >= 0) {
-                        // Procurar bancada livre
-                        int bancada_livre = -1;
-                        for (int i = 0; i < g->qtd_bancadas; i++) {
-                            if (g->bancadas[i].estado == BANCADA_LIVRE) {
-                                bancada_livre = i;
+                    // Se tedax não especificado, pegar o tedax livre com índice mais baixo
+                    if (tedax_idx == -1) {
+                        for (int i = 0; i < g->qtd_tedax; i++) {
+                            if (g->tedax[i].estado == TEDAX_LIVRE) {
+                                tedax_idx = i;
                                 break;
                             }
                         }
-                        
-                        if (bancada_livre >= 0) {
-                            // Designar módulo para o tedax
-                            Modulo *mod = &g->modulos[modulo_encontrado];
-                            Tedax *t = &g->tedax[tedax_livre];
-                            
-                            // Copiar instrução digitada
-                            strncpy(mod->instrucao_digitada, buffer_instrucao_global, 15);
-                            mod->instrucao_digitada[15] = '\0';
-                            
-                            // Mudar estado do módulo
-                            mod->estado = MOD_EM_EXECUCAO;
-                            mod->tempo_restante = mod->tempo_total;
-                            
-                            // Ocupar tedax e bancada
-                            t->estado = TEDAX_OCUPADO;
-                            t->modulo_atual = modulo_encontrado;
-                            t->bancada_atual = bancada_livre;
-                            
-                            g->bancadas[bancada_livre].estado = BANCADA_OCUPADA;
-                            g->bancadas[bancada_livre].tedax_ocupando = t->id;
-                            
-                            // Limpar buffer
-                            buffer_len = 0;
-                            buffer_instrucao_global[0] = '\0';
+                    }
+                    
+                    // Se bancada não especificada, pegar a bancada livre com índice mais baixo
+                    if (bancada_idx == -1) {
+                        for (int i = 0; i < g->qtd_bancadas; i++) {
+                            if (g->bancadas[i].estado == BANCADA_LIVRE) {
+                                bancada_idx = i;
+                                break;
+                            }
                         }
                     }
-                }
-                // Aceitar qualquer caractere imprimível
-                else if (ch >= 32 && ch <= 126) {
-                    if (buffer_len < 15) {
-                        buffer_instrucao_global[buffer_len] = (char)ch;
-                        buffer_len++;
-                        buffer_instrucao_global[buffer_len] = '\0';
+                    
+                    // Se módulo não especificado, pegar o primeiro módulo pendente
+                    if (modulo_idx == -1) {
+                        for (int i = 0; i < g->qtd_modulos; i++) {
+                            if (g->modulos[i].estado == MOD_PENDENTE) {
+                                modulo_idx = i;
+                                break;
+                            }
+                        }
                     }
+                    
+                    // Validar se todos os recursos estão disponíveis
+                    int valido = 1;
+                    
+                    if (tedax_idx < 0 || tedax_idx >= g->qtd_tedax) {
+                        valido = 0;
+                    } else if (g->tedax[tedax_idx].estado != TEDAX_LIVRE) {
+                        valido = 0; // Tedax especificado não está livre
+                    }
+                    
+                    if (bancada_idx < 0 || bancada_idx >= g->qtd_bancadas) {
+                        valido = 0;
+                    } else if (g->bancadas[bancada_idx].estado != BANCADA_LIVRE) {
+                        valido = 0; // Bancada especificada não está livre
+                    }
+                    
+                    if (modulo_idx < 0 || modulo_idx >= g->qtd_modulos) {
+                        valido = 0;
+                    } else if (g->modulos[modulo_idx].estado != MOD_PENDENTE) {
+                        valido = 0; // Módulo especificado não está pendente
+                    }
+                    
+                    if (valido && strlen(instrucao) > 0) {
+                        // Designar módulo para o tedax
+                        Modulo *mod = &g->modulos[modulo_idx];
+                        Tedax *t = &g->tedax[tedax_idx];
+                        
+                        // Copiar instrução
+                        strncpy(mod->instrucao_digitada, instrucao, 15);
+                        mod->instrucao_digitada[15] = '\0';
+                        
+                        // Mudar estado do módulo
+                        mod->estado = MOD_EM_EXECUCAO;
+                        mod->tempo_restante = mod->tempo_total;
+                        
+                        // Ocupar tedax e bancada
+                        t->estado = TEDAX_OCUPADO;
+                        t->modulo_atual = modulo_idx;
+                        t->bancada_atual = bancada_idx;
+                        
+                        g->bancadas[bancada_idx].estado = BANCADA_OCUPADA;
+                        g->bancadas[bancada_idx].tedax_ocupando = t->id;
+                        
+                        // Limpar buffer
+                        buffer_len = 0;
+                        buffer_instrucao_global[0] = '\0';
+                    } else {
+                        // Recursos não disponíveis ou inválidos
+                        strncpy(g->mensagem_erro, "Entrada Invalida", 63);
+                        g->mensagem_erro[63] = '\0';
+                        buffer_len = 0;
+                        buffer_instrucao_global[0] = '\0';
+                    }
+                }
+                // Se o parsing falhou, mostrar erro e limpar buffer
+                else {
+                    strncpy(g->mensagem_erro, "Entrada Invalida", 63);
+                    g->mensagem_erro[63] = '\0';
+                    buffer_len = 0;
+                    buffer_instrucao_global[0] = '\0';
+                }
+            }
+            // Aceitar qualquer caractere imprimível
+            else if (ch >= 32 && ch <= 126) {
+                if (buffer_len < 63) { // Aumentar limite para suportar comandos maiores
+                    buffer_instrucao_global[buffer_len] = (char)ch;
+                    buffer_len++;
+                    buffer_instrucao_global[buffer_len] = '\0';
                 }
             }
             

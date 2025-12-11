@@ -10,7 +10,8 @@
 #include "ui.h"
 
 // Buffer de instrução global (compartilhado entre threads)
-char buffer_instrucao_global[16] = "";
+// Aumentado para suportar comandos do formato T1B1M1:ppp
+char buffer_instrucao_global[64] = "";
 
 int main(void) {
     GameState g;
