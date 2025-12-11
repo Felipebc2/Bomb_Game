@@ -46,17 +46,17 @@ void inicializar_jogo(GameState *g, Dificuldade dificuldade, int num_tedax, int 
     switch (dificuldade) {
         case DIFICULDADE_FACIL:
             g->modulos_necessarios = 4;
-            g->intervalo_geracao = 65; // 13 segundos (65 ticks * 0.2s) - reduzido de 20s em 1/3
+            g->intervalo_geracao = 65; // 13 segundos (65 ticks * 0.2s) - reduzido de 20s
             modulos_iniciais = 1;
             break;
         case DIFICULDADE_MEDIO:
             g->modulos_necessarios = 12; // Dobrado de 8
-            g->intervalo_geracao = 50; // 10 segundos (50 ticks * 0.2s) - reduzido de 15s em 1/3
+            g->intervalo_geracao = 50; // 10 segundos (50 ticks * 0.2s) - reduzido de 15s
             modulos_iniciais = 2;
             break;
         case DIFICULDADE_DIFICIL:
             g->modulos_necessarios = 12; // Dobrado de 12
-            g->intervalo_geracao = 35; // 7 segundos (35 ticks * 0.2s) - reduzido de 10s em 1/3
+            g->intervalo_geracao = 35; // 7 segundos (35 ticks * 0.2s) - reduzido de 10s
             modulos_iniciais = 3;
             break;
     }

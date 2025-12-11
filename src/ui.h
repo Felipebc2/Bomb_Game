@@ -19,9 +19,17 @@ void mostrar_mensagem_vitoria(void);
 // Mostra mensagem de derrota
 void mostrar_mensagem_derrota(void);
 
-// Mostra menu inicial e retorna a dificuldade escolhida (ou -1 para sair)
+// Mostra menu principal e retorna o modo escolhido
+// Retorna: 0 = Classico, 1-6 = Outros modos (em breve), -1 = Sair
+int mostrar_menu_principal(void);
+
+// Mostra menu de dificuldades e retorna a dificuldade escolhida (ou -1 para sair)
 // Retorna DIFICULDADE_FACIL, DIFICULDADE_MEDIO, DIFICULDADE_DIFICIL, ou -1 para sair
-int mostrar_menu_inicial(void);
+int mostrar_menu_dificuldades(void);
+
+// Mostra menu pós-jogo (vitória ou derrota)
+// Retorna: 'q' ou 'Q' para sair, 'r' ou 'R' para voltar ao menu
+int mostrar_menu_pos_jogo(int vitoria);
 
 #endif // UI_H
 

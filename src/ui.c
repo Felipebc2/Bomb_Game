@@ -71,7 +71,7 @@ void desenhar_tela(const GameState *g, const char *buffer_instrucao) {
             mvprintw(linha++, 0, "  Tedax %d: OCUPADO", t->id);
             if (t->modulo_atual >= 0) {
                 const Modulo *mod = &g->modulos[t->modulo_atual];
-                mvprintw(linha++, 0, "    Desarmando modulo %d (%s) - Tempo restante: %d segundos",
+                mvprintw(linha++, 0, "    Desarmando M%d Botao %s - Tempo restante: %d segundos",
                          mod->id, nome_cor(mod->cor), mod->tempo_restante);
             }
             if (cores_disponiveis) {
@@ -152,16 +152,19 @@ void desenhar_tela(const GameState *g, const char *buffer_instrucao) {
                 break;
         }
         
-        // Mostrar detalhes do módulo
+        // Mostrar detalhes do módulo no formato M[Indice] [Categoria] [Cor]
+        const char* categoria = "Botao"; // Por enquanto só temos módulos de botão
+        const char* cor_nome = nome_cor(mod->cor);
+        
         if (mod->estado == MOD_EM_EXECUCAO) {
-            mvprintw(linha, 0, "  Modulo %d: %s - %s", 
-                     mod->id, nome_cor(mod->cor), nome_estado_modulo(mod->estado));
+            mvprintw(linha, 0, "  M%d %s %s - %s", 
+                     mod->id, categoria, cor_nome, nome_estado_modulo(mod->estado));
         } else if (mod->estado == MOD_RESOLVIDO) {
-            mvprintw(linha, 0, "  Modulo %d: %s", 
-                     mod->id, nome_estado_modulo(mod->estado));
+            mvprintw(linha, 0, "  M%d %s %s - %s", 
+                     mod->id, categoria, cor_nome, nome_estado_modulo(mod->estado));
         } else {
-            mvprintw(linha, 0, "  Modulo %d: %s - %s - Execucao: %d sec", 
-                     mod->id, nome_cor(mod->cor), nome_estado_modulo(mod->estado),
+            mvprintw(linha, 0, "  M%d %s %s - %s - Execucao: %d sec", 
+                     mod->id, categoria, cor_nome, nome_estado_modulo(mod->estado),
                      mod->tempo_total);
         }
         
@@ -194,37 +197,10 @@ void desenhar_tela(const GameState *g, const char *buffer_instrucao) {
     
     linha++;
     
-    // Resumo
-    mvprintw(linha++, 0, "Resumo: %d PENDENTE | %d EM_EXECUCAO | %d RESOLVIDO", 
-             pendentes, em_execucao, resolvidos);
-    linha++;
+
     
     // Área de entrada
-    // Verificar se há algum tedax livre
-    int tem_tedax_livre = 0;
-    for (int i = 0; i < g->qtd_tedax; i++) {
-        if (g->tedax[i].estado == TEDAX_LIVRE) {
-            tem_tedax_livre = 1;
-            break;
-        }
-    }
-    
-    if (!tem_tedax_livre) {
-        // Input desabilitado quando todos os tedax estão ocupados
-        if (cores_disponiveis) {
-            attron(COLOR_PAIR(3)); // Amarelo/Vermelho para indicar desabilitado
-        } else {
-            attron(A_DIM); // Texto com menos brilho
-        }
-        mvprintw(linha++, 0, "Comando: [DESABILITADO - Todos os tedax ocupados]");
-        if (cores_disponiveis) {
-            attroff(COLOR_PAIR(3));
-        } else {
-            attroff(A_DIM);
-        }
-    } else {
-        mvprintw(linha++, 0, "Comando: [%s]", buffer_instrucao);
-    }
+    mvprintw(linha++, 0, "Comando: [%s]", buffer_instrucao);
     linha++;
     
     // Mostrar mensagem de erro se houver
@@ -246,65 +222,179 @@ void desenhar_tela(const GameState *g, const char *buffer_instrucao) {
     refresh();
 }
 
-// Mostra mensagem de vitória
+// Mostra menu pós-jogo (vitória ou derrota)
+// Retorna: 'q' ou 'Q' para sair, 'r' ou 'R' para voltar ao menu
+int mostrar_menu_pos_jogo(int vitoria) {
+    clear();
+    int cores_disponiveis = has_colors();
+    
+    if (vitoria) {
+        if (cores_disponiveis) {
+            attron(A_BOLD | COLOR_PAIR(2));
+        } else {
+            attron(A_BOLD);
+        }
+        mvprintw(LINES / 2 - 1, COLS / 2 - 15, "================================");
+        mvprintw(LINES / 2, COLS / 2 - 15, "    BOMBA DESARMADA!");
+        mvprintw(LINES / 2 + 1, COLS / 2 - 15, "    VITORIA!");
+        mvprintw(LINES / 2 + 2, COLS / 2 - 15, "================================");
+        if (cores_disponiveis) {
+            attroff(A_BOLD | COLOR_PAIR(2));
+        } else {
+            attroff(A_BOLD);
+        }
+    } else {
+        if (cores_disponiveis) {
+            attron(A_BOLD | COLOR_PAIR(3));
+        } else {
+            attron(A_BOLD);
+        }
+        mvprintw(LINES / 2 - 1, COLS / 2 - 15, "================================");
+        mvprintw(LINES / 2, COLS / 2 - 15, "    BOMBA EXPLODIU!");
+        mvprintw(LINES / 2 + 1, COLS / 2 - 15, "    DERROTA!");
+        mvprintw(LINES / 2 + 2, COLS / 2 - 15, "================================");
+        if (cores_disponiveis) {
+            attroff(A_BOLD | COLOR_PAIR(3));
+        } else {
+            attroff(A_BOLD);
+        }
+    }
+    
+    mvprintw(LINES / 2 + 4, COLS / 2 - 15, "Pressione R para voltar ao Menu");
+    mvprintw(LINES / 2 + 5, COLS / 2 - 15, "Pressione Q para Sair");
+    refresh();
+    
+    nodelay(stdscr, FALSE);
+    timeout(-1); // Bloquear até receber entrada
+    int ch;
+    while (1) {
+        ch = getch();
+        if (ch == 'q' || ch == 'Q') {
+            return 'q';
+        } else if (ch == 'r' || ch == 'R') {
+            return 'r';
+        }
+    }
+}
+
+// Mostra mensagem de vitória (mantida para compatibilidade)
 void mostrar_mensagem_vitoria(void) {
-    clear();
-    int cores_disponiveis = has_colors();
-    
-    if (cores_disponiveis) {
-        attron(A_BOLD | COLOR_PAIR(2));
-    } else {
-        attron(A_BOLD);
-    }
-    mvprintw(LINES / 2 - 1, COLS / 2 - 15, "================================");
-    mvprintw(LINES / 2, COLS / 2 - 15, "    BOMBA DESARMADA!");
-    mvprintw(LINES / 2 + 1, COLS / 2 - 15, "    VITORIA!");
-    mvprintw(LINES / 2 + 2, COLS / 2 - 15, "================================");
-    if (cores_disponiveis) {
-        attroff(A_BOLD | COLOR_PAIR(2));
-    } else {
-        attroff(A_BOLD);
-    }
-    mvprintw(LINES / 2 + 4, COLS / 2 - 15, "Pressione qualquer tecla para sair...");
-    refresh();
-    
-    nodelay(stdscr, FALSE);
-    getch();
-    nodelay(stdscr, TRUE);
+    mostrar_menu_pos_jogo(1);
 }
 
-// Mostra mensagem de derrota
+// Mostra mensagem de derrota (mantida para compatibilidade)
 void mostrar_mensagem_derrota(void) {
-    clear();
-    int cores_disponiveis = has_colors();
-    
-    if (cores_disponiveis) {
-        attron(A_BOLD | COLOR_PAIR(3));
-    } else {
-        attron(A_BOLD);
-    }
-    mvprintw(LINES / 2 - 1, COLS / 2 - 15, "================================");
-    mvprintw(LINES / 2, COLS / 2 - 15, "    BOMBA EXPLODIU!");
-    mvprintw(LINES / 2 + 1, COLS / 2 - 15, "    DERROTA!");
-    mvprintw(LINES / 2 + 2, COLS / 2 - 15, "================================");
-    if (cores_disponiveis) {
-        attroff(A_BOLD | COLOR_PAIR(3));
-    } else {
-        attroff(A_BOLD);
-    }
-    mvprintw(LINES / 2 + 4, COLS / 2 - 15, "Pressione qualquer tecla para sair...");
-    refresh();
-    
-    nodelay(stdscr, FALSE);
-    getch();
-    nodelay(stdscr, TRUE);
+    mostrar_menu_pos_jogo(0);
 }
 
-// Mostra menu inicial e retorna a dificuldade escolhida (ou -1 para sair)
-int mostrar_menu_inicial(void) {
+// Mostra menu principal e retorna o modo escolhido
+// Retorna: 0 = Classico, 1-6 = Outros modos (em breve), -1 = Sair
+int mostrar_menu_principal(void) {
+    clear();
+    int cores_disponiveis = has_colors();
+    int selecao = 0; // 0 = Classico, 1-6 = Outros, 7 = Configs, 8 = Sair
+    
+    // Configurar para não bloquear na leitura
+    nodelay(stdscr, FALSE);
+    timeout(-1); // Bloquear até receber entrada
+    
+    while (1) {
+        clear();
+        
+        // Título
+        attron(A_BOLD);
+        mvprintw(LINES / 2 - 10, COLS / 2 - 20, "========================================");
+        mvprintw(LINES / 2 - 9, COLS / 2 - 20, "  KEEP SOLVING AND NOBODY EXPLODES");
+        mvprintw(LINES / 2 - 8, COLS / 2 - 20, "         VERSAO DE TREINO");
+        mvprintw(LINES / 2 - 7, COLS / 2 - 20, "========================================");
+        attroff(A_BOLD);
+        
+        mvprintw(LINES / 2 - 5, COLS / 2 - 15, "Selecione o Modo de Jogo:");
+        
+        // Opções do menu
+        const char* opcoes[9] = {
+            "1. Classico",
+            "2. Especialistas [Em Breve]",
+            "3. Sobrevivencia [Em Breve]",
+            "4. Extras [Em Breve]",
+            "5. Treino [Em Breve]",
+            "6. Custom [Em Breve]",
+            "7. Manual [Em Breve]",
+            "C. Configs [Em Breve]",
+            "Q. Sair"
+        };
+        
+        // Desenhar opções
+        for (int i = 0; i < 9; i++) {
+            int y;
+            if (i < 7) {
+                // Opções 1-7: posições normais
+                y = LINES / 2 - 3 + i;
+            } else {
+                // Opções C e Q: adicionar espaço em branco antes (linha extra)
+                // i=7 (C. Configs) vai para posição que seria i=8
+                // i=8 (Q. Sair) vai para posição que seria i=9
+                y = LINES / 2 - 3 + i + 1;
+            }
+            int x = COLS / 2 - 20;
+            
+            if (i == selecao) {
+                if (cores_disponiveis) {
+                    attron(A_REVERSE | COLOR_PAIR(1));
+                } else {
+                    attron(A_REVERSE);
+                }
+            }
+            
+            mvprintw(y, x, "%s", opcoes[i]);
+            
+            if (i == selecao) {
+                if (cores_disponiveis) {
+                    attroff(A_REVERSE | COLOR_PAIR(1));
+                } else {
+                    attroff(A_REVERSE);
+                }
+            }
+        }
+        
+        refresh();
+        
+        // Ler entrada (bloqueia até receber)
+        int ch = getch();
+        if (ch == KEY_UP || ch == 'w' || ch == 'W') {
+            selecao = (selecao - 1 + 9) % 9;
+        } else if (ch == KEY_DOWN || ch == 's' || ch == 'S') {
+            selecao = (selecao + 1) % 9;
+        } else if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+            if (selecao == 0) {
+                // Classico - retorna 0
+                return 0;
+            } else if (selecao >= 1 && selecao <= 6) {
+                // Modos em breve - não faz nada, apenas mostra que está em breve
+                // Pode adicionar uma mensagem aqui se quiser
+            } else if (selecao == 7) {
+                // Configs em breve - não faz nada
+            } else if (selecao == 8) {
+                // Sair
+                return -1;
+            }
+        } else if (ch == 'q' || ch == 'Q') {
+            return -1;
+        } else if (ch == '1') {
+            return 0; // Classico
+        }
+    }
+}
+
+// Mostra menu de dificuldades e retorna a dificuldade escolhida (ou -1 para sair)
+int mostrar_menu_dificuldades(void) {
     clear();
     int cores_disponiveis = has_colors();
     int selecao = 0; // 0 = Fácil, 1 = Médio, 2 = Difícil, 3 = Sair
+    
+    // Configurar para bloquear na leitura
+    nodelay(stdscr, FALSE);
+    timeout(-1); // Bloquear até receber entrada
     
     while (1) {
         clear();
@@ -349,6 +439,7 @@ int mostrar_menu_inicial(void) {
         
         refresh();
         
+        // Ler entrada (bloqueia até receber)
         int ch = getch();
         
         if (ch == KEY_UP || ch == 'w' || ch == 'W') {
@@ -364,12 +455,6 @@ int mostrar_menu_inicial(void) {
         } else if (ch == 'q' || ch == 'Q' || ch == 27) { // ESC ou Q
             return -1;
         }
-        
-        // Pequeno delay para evitar processamento excessivo
-        struct timespec ts;
-        ts.tv_sec = 0;
-        ts.tv_nsec = 100000000L; // 100ms
-        nanosleep(&ts, NULL);
     }
 }
 
