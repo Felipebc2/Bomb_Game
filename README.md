@@ -44,7 +44,10 @@ gcc -Wall -Wextra -std=c11 -Isrc -pthread src/main.c src/game.c src/ui.c -o jogo
 
 ## Como Jogar
 
-1. Ao iniciar o jogo, você verá um **menu de seleção de dificuldade** com três opções: **Fácil, Médio e Difícil**
+1. Ao iniciar o jogo, você verá um **menu de seleção de dificuldade** com três opções:
+   - **Fácil**: 8 módulos, 1 a cada 13 segundos, 1 tedax e 1 bancada, começa com 2 módulos
+   - **Médio**: 16 módulos, 1 a cada 10 segundos, 2 tedax e 2 bancadas, começa com 3 módulos
+   - **Difícil**: 24 módulos, 1 a cada 7 segundos, 3 tedax e 3 bancadas, começa com 4 módulos
 2. Use as setas do teclado para navegar e ENTER para selecionar a dificuldade.
 3. Cada módulo tem uma cor e requer uma sequência específica, que no arquivo de instruções está expecificado ao jogador
 4. Digite o comando no formato `T<tedax>B<bancada>M<modulo>:<instrucao>` (veja seção "Sistema de Input" abaixo)
@@ -55,7 +58,7 @@ gcc -Wall -Wextra -std=c11 -Isrc -pthread src/main.c src/game.c src/ui.c -o jogo
    - O tempo acaba e ainda há módulos pendentes (DERROTA)
   
 ### Regras Gerais
-- O jogo começa com **1 módulo já gerado**
+- O jogo começa com módulos já gerados baseado na dificuldade (Fácil: 2, Médio: 3, Difícil: 4)
 - Novos módulos são gerados automaticamente conforme o intervalo da dificuldade escolhida
 - A geração de módulos **para** quando o número máximo necessário é atingido
 - Para vencer, você precisa resolver **todos os módulos necessários** da dificuldade escolhida
@@ -150,9 +153,12 @@ O jogo utiliza mecanismos de sincronização para garantir consistência dos dad
 
 ### Múltiplos Tedax e Bancadas
 
-O jogo suporta configuração de 1 a 3 tedax e 1 a 3 bancadas:
-- Cada tedax pode trabalhar em paralelo em um módulo diferente
-- Cada tedax precisa ocupar uma bancada livre para desarmar um módulo
+O número de tedax e bancadas varia conforme a dificuldade escolhida:
+- **Fácil**: 1 tedax e 1 bancada
+- **Médio**: 2 tedax e 2 bancadas
+- **Difícil**: 3 tedax e 3 bancadas
+
+Cada tedax pode trabalhar em paralelo em um módulo diferente, e cada tedax precisa ocupar uma bancada livre para desarmar um módulo. Com mais recursos disponíveis, você pode processar múltiplos módulos simultaneamente.
 
 ### Remoção Automática de Módulos Resolvidos
 

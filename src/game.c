@@ -16,7 +16,7 @@ void inicializar_jogo(GameState *g, Dificuldade dificuldade, int num_tedax, int 
     if (num_bancadas > 3) num_bancadas = 3;
     
     g->dificuldade = dificuldade;
-    g->tempo_total_partida = 120;  // 120 segundos de partida
+    g->tempo_total_partida = 120;
     g->tempo_restante = g->tempo_total_partida;
     g->qtd_modulos = 0;
     g->proximo_id_modulo = 1;
@@ -38,22 +38,26 @@ void inicializar_jogo(GameState *g, Dificuldade dificuldade, int num_tedax, int 
         g->bancadas[i].tedax_ocupando = -1;
     }
     
-    // Inicializar semente do rand (deve ser antes de usar rand())
+    // Inicializar random seed
     srand(time(NULL));
     
     // Configuração baseada na dificuldade
+    int modulos_iniciais = 0;
     switch (dificuldade) {
         case DIFICULDADE_FACIL:
             g->modulos_necessarios = 4;
-            g->intervalo_geracao = 100; // 20 segundos (100 ticks * 0.2s)
+            g->intervalo_geracao = 65; // 13 segundos (65 ticks * 0.2s) - reduzido de 20s em 1/3
+            modulos_iniciais = 1;
             break;
         case DIFICULDADE_MEDIO:
-            g->modulos_necessarios = 8;
-            g->intervalo_geracao = 75; // 15 segundos (75 ticks * 0.2s)
+            g->modulos_necessarios = 12; // Dobrado de 8
+            g->intervalo_geracao = 50; // 10 segundos (50 ticks * 0.2s) - reduzido de 15s em 1/3
+            modulos_iniciais = 2;
             break;
         case DIFICULDADE_DIFICIL:
-            g->modulos_necessarios = 12;
-            g->intervalo_geracao = 50; // 10 segundos (50 ticks * 0.2s)
+            g->modulos_necessarios = 12; // Dobrado de 12
+            g->intervalo_geracao = 35; // 7 segundos (35 ticks * 0.2s) - reduzido de 10s em 1/3
+            modulos_iniciais = 3;
             break;
     }
     
@@ -69,9 +73,11 @@ void inicializar_jogo(GameState *g, Dificuldade dificuldade, int num_tedax, int 
     pthread_cond_init(&g->cond_bancada_disponivel, NULL);
     pthread_cond_init(&g->cond_tela_atualizada, NULL);
     
-    // Gerar primeiro módulo imediatamente
+    // Gerar módulos iniciais baseado na dificuldade
     pthread_mutex_lock(&g->mutex_jogo);
-    gerar_novo_modulo(g);
+    for (int i = 0; i < modulos_iniciais; i++) {
+        gerar_novo_modulo(g);
+    }
     pthread_mutex_unlock(&g->mutex_jogo);
 }
 
@@ -102,8 +108,27 @@ void gerar_novo_modulo(GameState *g) {
     int cor_aleatoria = rand() % 3;
     novo->cor = (CorBotao)cor_aleatoria;
     
-    // Definir tempo total (entre 3 e 8 segundos)
-    novo->tempo_total = 3 + (rand() % 6);
+    // Definir tempo total baseado na dificuldade
+    int tempo_minimo, tempo_variacao;
+    switch (g->dificuldade) {
+        case DIFICULDADE_FACIL:
+            tempo_minimo = 3;
+            tempo_variacao = 8;
+            break;
+        case DIFICULDADE_MEDIO:
+            tempo_minimo = 5;
+            tempo_variacao = 15;
+            break;
+        case DIFICULDADE_DIFICIL:
+            tempo_minimo = 9;
+            tempo_variacao = 20;
+            break;
+        default:
+            tempo_minimo = 3;
+            tempo_variacao = 8;
+            break;
+    }
+    novo->tempo_total = tempo_minimo + (rand() % (tempo_variacao + 1));
     novo->tempo_restante = novo->tempo_total;
     
     // Definir instrução correta baseada na cor

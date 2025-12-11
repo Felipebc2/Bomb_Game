@@ -33,9 +33,26 @@ int main(void) {
         return 0;
     }
     
-    // Por enquanto, usar valores padrão (depois pode ser configurável)
-    int num_tedax = 1;
-    int num_bancadas = 1;
+    // Definir número de tedax e bancadas baseado na dificuldade
+    int num_tedax, num_bancadas;
+    switch (dificuldade_escolhida) {
+        case DIFICULDADE_FACIL:
+            num_tedax = 1;
+            num_bancadas = 1;
+            break;
+        case DIFICULDADE_MEDIO:
+            num_tedax = 2;
+            num_bancadas = 2;
+            break;
+        case DIFICULDADE_DIFICIL:
+            num_tedax = 3;
+            num_bancadas = 3;
+            break;
+        default:
+            num_tedax = 1;
+            num_bancadas = 1;
+            break;
+    }
     
     // Finalizar ncurses temporário (será reinicializado nas threads)
     finalizar_ncurses();
