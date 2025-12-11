@@ -9,6 +9,7 @@
 #include "game.h"
 #include "ui.h"
 #include "audio.h"
+#include "fases.h"
 
 // Buffer de instrução global (compartilhado entre threads)
 // Aumentado para suportar comandos do formato T1B1M1:ppp
@@ -66,26 +67,10 @@ int main(void) {
                     break;
             }
     
-            // Definir número de tedax e bancadas baseado na dificuldade
-            int num_tedax, num_bancadas;
-            switch (dificuldade_escolhida) {
-                case DIFICULDADE_FACIL:
-                    num_tedax = 1;
-                    num_bancadas = 1;
-                    break;
-                case DIFICULDADE_MEDIO:
-                    num_tedax = 2;
-                    num_bancadas = 2;
-                    break;
-                case DIFICULDADE_DIFICIL:
-                    num_tedax = 3;
-                    num_bancadas = 3;
-                    break;
-                default:
-                    num_tedax = 1;
-                    num_bancadas = 1;
-                    break;
-            }
+            // Obter configuração da fase para número de tedax e bancadas
+            const ConfigFase *config = obter_config_fase(dificuldade_escolhida);
+            int num_tedax = config->num_tedax;
+            int num_bancadas = config->num_bancadas;
             
             // Finalizar ncurses temporário (será reinicializado nas threads)
             finalizar_ncurses();
@@ -120,7 +105,7 @@ int main(void) {
     // Criar threads
     pthread_t thread_mural_id;
     pthread_t thread_exibicao_id;
-    pthread_t thread_tedax_ids[3];
+    pthread_t thread_tedax_ids[5];
     pthread_t thread_coordenador_id;
     
     // Thread do Mural
@@ -129,7 +114,7 @@ int main(void) {
     // Thread de Exibição
     pthread_create(&thread_exibicao_id, NULL, thread_exibicao, &g);
     
-    // Threads dos Tedax
+    // Threads dos Tedax (até 5)
     for (int i = 0; i < g.qtd_tedax; i++) {
         typedef struct {
             GameState *g;
@@ -188,18 +173,15 @@ int main(void) {
     }
     pthread_join(thread_coordenador_id, NULL);
     
-    // Mostrar mensagem final (ncurses já foi finalizado pela thread de exibição)
-    // Reinicializar para mostrar mensagem
-    inicializar_ncurses();
-    if (has_colors()) {
-        start_color();
-        init_pair(1, COLOR_CYAN, COLOR_BLACK);
-        init_pair(2, COLOR_GREEN, COLOR_BLACK);
-        init_pair(3, COLOR_YELLOW, COLOR_BLACK);
-    }
+    // Ncurses ainda está ativo (não foi finalizado pela thread de exibição)
+    // Limpar a tela antes de mostrar o menu pós-jogo
+    clear();
+    refresh();
     
             pthread_mutex_lock(&g.mutex_jogo);
             int vitoria = 0;
+            int tempo_restante_final = g.tempo_restante;
+            int erros_final = g.erros_cometidos;
             if (todos_modulos_resolvidos(&g) && g.qtd_modulos > 0) {
                 vitoria = 1;
             } else if (g.qtd_modulos > 0) {
@@ -225,7 +207,7 @@ int main(void) {
             }
             
             // Mostrar menu pós-jogo (bloqueante - espera usuário pressionar R ou Q)
-            int opcao = mostrar_menu_pos_jogo(vitoria);
+            int opcao = mostrar_menu_pos_jogo(vitoria, tempo_restante_final, erros_final);
             
             // Após sair do menu, aguardar música temporária terminar (se ainda estiver tocando)
             // e depois voltar para Menu.mp3

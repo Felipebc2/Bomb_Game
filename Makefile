@@ -3,7 +3,7 @@ CFLAGS = -Wall -Wextra -std=c11 -Isrc -pthread
 LDFLAGS = -lncurses -pthread
 TARGET = jogo
 SRCDIR = src
-SOURCES = $(SRCDIR)/main.c $(SRCDIR)/game.c $(SRCDIR)/ui.c $(SRCDIR)/audio.c
+SOURCES = $(SRCDIR)/main.c $(SRCDIR)/game.c $(SRCDIR)/ui.c $(SRCDIR)/audio.c $(SRCDIR)/fases.c
 OBJECTS = $(SOURCES:.c=.o)
 
 # Verificar se SDL2_mixer está disponível

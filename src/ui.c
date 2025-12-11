@@ -65,6 +65,20 @@ void desenhar_tela(const GameState *g, const char *buffer_instrucao) {
             if (cores_disponiveis) {
                 attroff(COLOR_PAIR(2));
             }
+        } else if (t->estado == TEDAX_ESPERANDO) {
+            if (cores_disponiveis) {
+                attron(COLOR_PAIR(3)); // Amarelo
+            }
+            mvprintw(linha++, 0, "  Tedax %d: ESPERANDO (Bancada %d)", t->id, 
+                     t->bancada_atual >= 0 ? g->bancadas[t->bancada_atual].id : 0);
+            if (t->modulo_atual >= 0) {
+                const Modulo *mod = &g->modulos[t->modulo_atual];
+                mvprintw(linha++, 0, "    Aguardando para M%d Botao %s",
+                         mod->id, nome_cor(mod->cor));
+            }
+            if (cores_disponiveis) {
+                attroff(COLOR_PAIR(3));
+            }
         } else {
             if (cores_disponiveis) {
                 attron(COLOR_PAIR(3)); // Amarelo/Vermelho
@@ -74,6 +88,22 @@ void desenhar_tela(const GameState *g, const char *buffer_instrucao) {
                 const Modulo *mod = &g->modulos[t->modulo_atual];
                 mvprintw(linha++, 0, "    Desarmando M%d Botao %s - Tempo restante: %d segundos",
                          mod->id, nome_cor(mod->cor), mod->tempo_restante);
+            }
+            // Mostrar fila de módulos em espera
+            if (t->qtd_fila > 0) {
+                mvprintw(linha++, 0, "    Fila: %d modulo(s) em espera", t->qtd_fila);
+                // Mostrar os primeiros 3 módulos da fila
+                int max_mostrar = (t->qtd_fila < 3) ? t->qtd_fila : 3;
+                for (int j = 0; j < max_mostrar; j++) {
+                    if (t->fila_modulos[j] >= 0 && t->fila_modulos[j] < g->qtd_modulos) {
+                        const Modulo *mod_fila = &g->modulos[t->fila_modulos[j]];
+                        mvprintw(linha++, 0, "      - M%d Botao %s",
+                                 mod_fila->id, nome_cor(mod_fila->cor));
+                    }
+                }
+                if (t->qtd_fila > 3) {
+                    mvprintw(linha++, 0, "      ... e mais %d", t->qtd_fila - 3);
+                }
             }
             if (cores_disponiveis) {
                 attroff(COLOR_PAIR(3));
@@ -99,6 +129,9 @@ void desenhar_tela(const GameState *g, const char *buffer_instrucao) {
                 attron(COLOR_PAIR(3));
             }
             mvprintw(linha++, 0, "  Bancada %d: OCUPADA (Tedax %d)", b->id, b->tedax_ocupando);
+            if (b->tedax_esperando >= 0) {
+                mvprintw(linha++, 0, "    Esperando: Tedax %d", b->tedax_esperando);
+            }
             if (cores_disponiveis) {
                 attroff(COLOR_PAIR(3));
             }
@@ -225,7 +258,7 @@ void desenhar_tela(const GameState *g, const char *buffer_instrucao) {
 
 // Mostra menu pós-jogo (vitória ou derrota)
 // Retorna: 'q' ou 'Q' para sair, 'r' ou 'R' para voltar ao menu
-int mostrar_menu_pos_jogo(int vitoria) {
+int mostrar_menu_pos_jogo(int vitoria, int tempo_restante, int erros) {
     clear();
     int cores_disponiveis = has_colors();
     
@@ -244,6 +277,10 @@ int mostrar_menu_pos_jogo(int vitoria) {
         } else {
             attroff(A_BOLD);
         }
+        
+        // Mostrar estatísticas de vitória
+        mvprintw(LINES / 2 + 4, COLS / 2 - 15, "Tempo Restante: %d segundos", tempo_restante);
+        mvprintw(LINES / 2 + 5, COLS / 2 - 15, "Erros: %d", erros);
     } else {
         if (cores_disponiveis) {
             attron(A_BOLD | COLOR_PAIR(3));
@@ -261,8 +298,10 @@ int mostrar_menu_pos_jogo(int vitoria) {
         }
     }
     
-    mvprintw(LINES / 2 + 4, COLS / 2 - 15, "Pressione R para voltar ao Menu");
-    mvprintw(LINES / 2 + 5, COLS / 2 - 15, "Pressione Q para Sair");
+    // Mostrar opções de menu (abaixo das estatísticas se vitória, ou abaixo da mensagem se derrota)
+    int linha_opcoes = vitoria ? LINES / 2 + 7 : LINES / 2 + 4;
+    mvprintw(linha_opcoes, COLS / 2 - 15, "Pressione R para voltar ao Menu");
+    mvprintw(linha_opcoes + 1, COLS / 2 - 15, "Pressione Q para Sair");
     refresh();
     
     nodelay(stdscr, FALSE);
@@ -280,12 +319,12 @@ int mostrar_menu_pos_jogo(int vitoria) {
 
 // Mostra mensagem de vitória (mantida para compatibilidade)
 void mostrar_mensagem_vitoria(void) {
-    mostrar_menu_pos_jogo(1);
+    mostrar_menu_pos_jogo(1, 0, 0);
 }
 
 // Mostra mensagem de derrota (mantida para compatibilidade)
 void mostrar_mensagem_derrota(void) {
-    mostrar_menu_pos_jogo(0);
+    mostrar_menu_pos_jogo(0, 0, 0);
 }
 
 // Variável global para estado da música (mantém estado entre chamadas)

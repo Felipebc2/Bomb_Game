@@ -21,7 +21,8 @@ typedef enum {
 // Estados possíveis do tedax
 typedef enum {
     TEDAX_LIVRE,
-    TEDAX_OCUPADO
+    TEDAX_OCUPADO,
+    TEDAX_ESPERANDO
 } EstadoTedax;
 
 // Estados possíveis de uma bancada
@@ -58,6 +59,10 @@ typedef struct {
     int modulo_atual;           // índice do módulo que está desarmando, ou -1 se livre
     int bancada_atual;          // índice da bancada que está usando, ou -1 se livre
     pthread_t thread_id;        // ID da thread deste tedax
+    
+    // Fila de módulos em espera para este tedax
+    int fila_modulos[10];      // índices dos módulos em espera
+    int qtd_fila;               // quantidade de módulos na fila
 } Tedax;
 
 // Estrutura que representa uma bancada
@@ -65,6 +70,7 @@ typedef struct {
     int id;
     EstadoBancada estado;
     int tedax_ocupando;         // ID do tedax que está usando, ou -1 se livre
+    int tedax_esperando;        // ID do tedax que está esperando por esta bancada, ou -1 se nenhum
 } Bancada;
 
 // Estado geral do jogo
@@ -79,8 +85,8 @@ typedef struct {
     int modulos_necessarios;    // número de módulos necessários para vencer
     
     // Múltiplos tedax e bancadas
-    Tedax tedax[3];             // até 3 tedax
-    Bancada bancadas[3];        // até 3 bancadas
+    Tedax tedax[5];             // até 5 tedax
+    Bancada bancadas[5];        // até 5 bancadas
     int qtd_tedax;              // quantidade de tedax disponíveis
     int qtd_bancadas;           // quantidade de bancadas disponíveis
     
@@ -100,6 +106,7 @@ typedef struct {
     pthread_cond_t cond_tela_atualizada;    // condition variable para atualizar a tela
     
     char mensagem_erro[64]; // mensagem de erro para exibir na UI
+    int erros_cometidos;    // contador de erros (instruções incorretas)
 } GameState;
 
 // Funções do jogo

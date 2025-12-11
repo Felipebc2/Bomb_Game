@@ -29,7 +29,7 @@ int mostrar_menu_dificuldades(void);
 
 // Mostra menu pós-jogo (vitória ou derrota)
 // Retorna: 'q' ou 'Q' para sair, 'r' ou 'R' para voltar ao menu
-int mostrar_menu_pos_jogo(int vitoria);
+int mostrar_menu_pos_jogo(int vitoria, int tempo_restante, int erros);
 
 #endif // UI_H
 
