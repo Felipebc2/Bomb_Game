@@ -8,6 +8,61 @@
 #include <time.h>
 #include <stdio.h>
 
+// Helpers para impressão colorida de módulos
+static void imprimir_cor_botao(CorBotao cor, int cores_disponiveis) {
+    const char* cor_nome = (cor == COR_VERMELHO) ? "Vermelho" :
+                           (cor == COR_VERDE) ? "Verde" : "Azul";
+    int pair = 0;
+    switch (cor) {
+        case COR_VERMELHO: pair = 4; break;
+        case COR_VERDE:    pair = 2; break;
+        case COR_AZUL:     pair = 5; break;
+    }
+    if (cores_disponiveis && pair > 0) {
+        attron(COLOR_PAIR(pair) | A_BOLD);
+        printw("%s", cor_nome);
+        attroff(COLOR_PAIR(pair) | A_BOLD);
+    } else {
+        printw("%s", cor_nome);
+    }
+}
+
+static void imprimir_fio_token(const char* token, int cores_disponiveis) {
+    int pair = 0;
+    if (strcmp(token, "R") == 0) pair = 4;
+    else if (strcmp(token, "G") == 0) pair = 2;
+    else if (strcmp(token, "B") == 0) pair = 5;
+    else if (strcmp(token, "Y") == 0) pair = 3;
+    else if (strcmp(token, "W") == 0) pair = 6;
+    else if (strcmp(token, "K") == 0) pair = 7;
+
+    if (cores_disponiveis && pair > 0) {
+        attron(COLOR_PAIR(pair) | A_BOLD);
+        
+        printw("%s", token);
+        attroff(COLOR_PAIR(pair) | A_BOLD);
+    } else {
+        printw("%s", token);
+    }
+}
+
+static void imprimir_sequencia_fios_colorida(const char* sequencia, int cores_disponiveis) {
+    // sequencia vem no formato "/R/G/B/"
+    char buffer[64];
+    strncpy(buffer, sequencia, sizeof(buffer));
+    buffer[sizeof(buffer) - 1] = '\0';
+
+    char* token = strtok(buffer, "/");
+    while (token != NULL) {
+        printw("/");
+        if (*token != '\0') {
+            imprimir_fio_token(token, cores_disponiveis);
+        }
+        token = strtok(NULL, "/");
+    }
+    printw("/");
+}
+
 // Inicializa o ncurses
 void inicializar_ncurses(void) {
     initscr();                  // Inicializa a tela
@@ -216,20 +271,42 @@ void desenhar_tela(const GameState *g, const char *buffer_instrucao) {
                 break;
         }
         
-        // Mostrar detalhes do módulo usando função auxiliar
-        char info_modulo[128];
-        obter_info_exibicao_modulo(mod, info_modulo, sizeof(info_modulo));
-        
-        if (mod->estado == MOD_EM_EXECUCAO) {
-            mvprintw(linha, 0, "  M%d %s - %s", 
-                     mod->id, info_modulo, nome_estado_modulo(mod->estado));
-        } else if (mod->estado == MOD_RESOLVIDO) {
-            mvprintw(linha, 0, "  M%d %s - %s", 
-                     mod->id, info_modulo, nome_estado_modulo(mod->estado));
+        // Mostrar detalhes do módulo com cores (quando disponíveis)
+        const char* estado_str = nome_estado_modulo(mod->estado);
+        int cores_disponiveis = has_colors();
+        if (cores_disponiveis) {
+            // cores já inicializadas no start_color() da thread
+        }
+
+        if (mod->tipo == TIPO_BOTAO && cores_disponiveis) {
+            move(linha, 0);
+            printw("  M%d Botao ", mod->id);
+            imprimir_cor_botao(mod->dados.botao.cor, cores_disponiveis);
+            printw(" - %s", estado_str);
+            if (mod->estado == MOD_PENDENTE) {
+                printw(" - Execucao: %d sec", mod->tempo_total);
+            }
+        } else if (mod->tipo == TIPO_FIOS && cores_disponiveis) {
+            move(linha, 0);
+            printw("  M%d Fios ", mod->id);
+            imprimir_sequencia_fios_colorida(mod->dados.fios.sequencia, cores_disponiveis);
+            printw(" (Padrao %d) - %s", mod->dados.fios.padrao, estado_str);
+            if (mod->estado == MOD_PENDENTE) {
+                printw(" - Execucao: %d sec", mod->tempo_total);
+            }
         } else {
-            mvprintw(linha, 0, "  M%d %s - %s - Execucao: %d sec", 
-                     mod->id, info_modulo, nome_estado_modulo(mod->estado),
-                     mod->tempo_total);
+            // Fallback para sem cores ou outros tipos
+            char info_modulo[128];
+            obter_info_exibicao_modulo(mod, info_modulo, sizeof(info_modulo));
+            
+            move(linha, 0);
+            if (mod->estado == MOD_PENDENTE) {
+                printw("  M%d %s - %s - Execucao: %d sec", 
+                       mod->id, info_modulo, estado_str, mod->tempo_total);
+            } else {
+                printw("  M%d %s - %s", 
+                       mod->id, info_modulo, estado_str);
+            }
         }
         
         linha++;
@@ -332,10 +409,16 @@ int mostrar_menu_pos_jogo(int vitoria, int tempo_restante, int erros) {
     int linha_opcoes = vitoria ? LINES / 2 + 7 : LINES / 2 + 4;
     mvprintw(linha_opcoes, COLS / 2 - 15, "Pressione R para voltar ao Menu");
     mvprintw(linha_opcoes + 1, COLS / 2 - 15, "Pressione Q para Sair");
+    // Reconfigurar entrada para modo bloqueante e limpo
+    // (as threads de jogo usam nodelay/timeout(0); aqui precisamos do oposto)
     refresh();
-    
-    nodelay(stdscr, FALSE);
-    timeout(-1); // Bloquear até receber entrada
+    flushinp();               // descarta teclas pendentes das threads anteriores
+    nodelay(stdscr, FALSE);   // leitura bloqueante
+    timeout(-1);              // espera indefinidamente
+    keypad(stdscr, TRUE);     // teclas especiais (setas, etc.)
+    cbreak();                 // modo de caractere imediato
+    noecho();                 // não ecoar teclas
+    curs_set(0);              // manter cursor oculto
     int ch;
     while (1) {
         ch = getch();

@@ -32,6 +32,10 @@ int main(void) {
             init_pair(1, COLOR_CYAN, COLOR_BLACK);
             init_pair(2, COLOR_GREEN, COLOR_BLACK);
             init_pair(3, COLOR_YELLOW, COLOR_BLACK);
+            init_pair(4, COLOR_RED, COLOR_BLACK);
+            init_pair(5, COLOR_BLUE, COLOR_BLACK);
+            init_pair(6, COLOR_WHITE, COLOR_BLACK);
+            init_pair(7, COLOR_BLACK, COLOR_WHITE); // usado para fio preto
         }
         
         // Mostrar menu principal
@@ -173,8 +177,26 @@ int main(void) {
     }
     pthread_join(thread_coordenador_id, NULL);
     
-    // Ncurses ainda está ativo (não foi finalizado pela thread de exibição)
-    // Limpar a tela antes de mostrar o menu pós-jogo
+    // Reconfigurar ncurses no thread principal para o menu pós-jogo
+    // (evita estado inconsistente após o uso em outras threads)
+    finalizar_ncurses();      // encerra estado anterior
+    initscr();                // inicia novo contexto
+    cbreak();                 // entrada imediata
+    noecho();                 // não ecoar
+    keypad(stdscr, TRUE);     // habilitar teclas especiais
+    nodelay(stdscr, FALSE);   // leitura bloqueante
+    timeout(-1);              // espera indefinida
+    curs_set(0);              // esconder cursor
+    if (has_colors()) {
+        start_color();
+        init_pair(1, COLOR_CYAN, COLOR_BLACK);
+        init_pair(2, COLOR_GREEN, COLOR_BLACK);
+        init_pair(3, COLOR_YELLOW, COLOR_BLACK);
+        init_pair(4, COLOR_RED, COLOR_BLACK);
+        init_pair(5, COLOR_BLUE, COLOR_BLACK);
+        init_pair(6, COLOR_WHITE, COLOR_BLACK);
+        init_pair(7, COLOR_BLACK, COLOR_WHITE); // fio preto
+    }
     clear();
     refresh();
     
